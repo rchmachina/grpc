@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "dto/authpb"; // Adjust as needed
+
+// Define the Auth service
+service AuthService {
+    // Login method for user authentication
+    rpc Login(LoginRequest) returns (LoginResponse);
+    
+    // CreateUser method for registering a new user
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc TestingMw(empty) returns (ReturnTesting);
+}
+
+message empty {}
+// Define the request for login
+message LoginRequest {
+    string email = 1; // User's email
+    string hashPassword = 2; // User's hashed password
+}
+
+message ReturnTesting {
+    string getTest = 1; // User's email
+}
+
+// Define the response for login
+message LoginResponse {
+    
+    string userId = 1; // ID of the user
+    string roles = 2; // User roles
+    string userName = 3; // Username
+    string hashedPassword = 4; // Hashed password
+    int64 expired = 5; // Expiration time for the token
+    string token = 6; // Token
+}
+
+// Request for creating a user
+message CreateUserRequest {
+    string email = 1; // User's email
+    string hashedPassword = 2; // User's hashed password
+    string fullname = 3; // User's full name
+}
+
+// Response for user creation
+message CreateUserResponse {
+    string userId = 1; // ID of the created user
+    string message = 2; // Confirmation message
+}
