@@ -10,6 +10,7 @@ import (
 	"github.com/rchmachina/grpc/cmd/services"
 	userPb "github.com/rchmachina/grpc/dto/authpb"
 	"google.golang.org/grpc"
+	streamPb "github.com/rchmachina/grpc/dto/streamingService"
 	
 
 )
@@ -39,14 +40,19 @@ func main() {
 		grpc.UnaryInterceptor(mw.AuthInterceptor([]string{
 			 // Add methods that require authentication
 			"/auth.AuthService/TestingMw",
+			"/StreamingService.StreamingService/BidirectionalStreaming",
+		})),
+		grpc.StreamInterceptor(mw.AuthStreamInterceptor([]string{
+			// Methods that require authentication for streaming calls
+			"/StreamingService.StreamingService/BidirectionalStreaming",
 		})),
 	)
-
-	
-
-
-	authService := services.AuthService{Db: db,}
+	authService := services.AuthService{Db: db}
+	streamService := services.StreamingService{Db:db}
 	userPb.RegisterAuthServiceServer(grpcServer, &authService)
+	streamPb.RegisterStreamingServiceServer(grpcServer, &streamService)
+
+
 	log.Printf("server started at %v", netListen.Addr())
 	if err := grpcServer.Serve(netListen); err != nil {
 		log.Fatal(" failed to serve: ", err.Error())

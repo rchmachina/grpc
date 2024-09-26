@@ -88,6 +88,81 @@ func AuthInterceptor(authRequiredMethods []string) grpc.UnaryServerInterceptor {
 }
 
 
+func AuthStreamInterceptor(authRequiredMethods []string) grpc.StreamServerInterceptor {
+	return func(
+		srv interface{},
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+		
+	) error {
+		// Check if the method requires authentication
+		for _, method := range authRequiredMethods {
+			if strings.HasPrefix(info.FullMethod, method) {
+				// Extract the metadata from the context
+				md, ok := metadata.FromIncomingContext(ss.Context())
+				if !ok {
+					return  status.Errorf(codes.Unauthenticated, "Missing metadata")
+				}
+
+				// Get the 'authorization' value from metadata
+				authHeader, ok := md["authorization"]
+				if !ok || len(authHeader) == 0 {
+					return status.Errorf(codes.Unauthenticated, "Authorization token not provided")
+				}
+
+				// Check if the token is in the format "Bearer <token>"
+				tokenString := authHeader[0]
+				if !strings.HasPrefix(tokenString, "Bearer ") {
+					return  status.Errorf(codes.Unauthenticated, "Invalid token format")
+				}
+
+				// Extract the actual token by removing "Bearer "
+				tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+
+				// Parse and validate the JWT token
+				claims := &JWTClaims{}
+				token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+					// Ensure the signing method is correct
+					if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, status.Errorf(codes.Unauthenticated, "Unexpected signing method")
+					}
+					return jwtSecret, nil
+				})
+
+				if err != nil || !token.Valid {
+					return  status.Errorf(codes.Unauthenticated, "Invalid token: %v", err)
+				}
+
+
+				// Add the claims to the context for further use
+				newCtx := context.WithValue(ss.Context(), "username", claims.Username)
+				ss = wrapServerStream(ss, newCtx)
+				break
+			}
+		}
+
+		// Call the handler
+		return handler(srv, ss)
+	}
+}
+
+
+func wrapServerStream(stream grpc.ServerStream, ctx context.Context) grpc.ServerStream {
+	wrappedStream := &wrappedServerStream{ServerStream: stream, ctx: ctx}
+	return wrappedStream
+}
+
+type wrappedServerStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *wrappedServerStream) Context() context.Context {
+	return w.ctx
+}
+
+
 // Helper function to extract token from context metadata
 func extractTokenFromContext(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)

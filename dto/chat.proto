@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package StreamingService;
+
+option go_package = "dto/StreamingService"; // Adjust as needed
+
+service StreamingService {
+  rpc BidirectionalStreaming(stream StreamRequest) returns (stream StreamResponse);
+}
+
+message StreamRequest {
+  string message = 1;
+}
+
+message StreamResponse {
+  string reply = 1;
+}
